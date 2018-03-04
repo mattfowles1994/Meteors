@@ -1,0 +1,68 @@
+import json
+import sqlite3
+import re
+
+file = json.load(open('met.json'))
+
+conn = sqlite3.connect('meteors.sqlite')
+cur = conn.cursor()
+
+# CREATING TABLES IN SQL
+
+cur.executescript('''
+
+CREATE TABLE Year (
+    id  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
+    Year    INTEGER UNIQUE
+);
+
+CREATE TABLE Composition (
+    id  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
+    type    TEXT UNIQUE
+);
+
+CREATE TABLE Meteorites (
+    id  INTEGER NOT NULL PRIMARY KEY 
+        AUTOINCREMENT UNIQUE,
+    Name TEXT UNIQUE,
+    'Mass(g)' INTEGER,
+    Year_id  INTEGER,
+    Composition_id  INTEGER,
+    Latitude INTEGER,
+    Longitude INTEGER
+);
+''')
+
+# INSERTING DATA
+
+for line in file['data']:
+    mass = line[12]
+    meteor = line[8]
+    lat = line[15]
+    long = line[16]
+    # SOME YEAR DATA NOT THERE AND RECORDED AS DATE TIME, YEAR EXTRACTED
+    try:
+        year = line[14]
+        year = re.findall('(\S*?)-', year)
+        year = year[0]
+        year = int(year)
+    except:
+        year = 'NO DATA'
+    composition = line[11]
+
+    cur.execute('''INSERT OR IGNORE INTO Year(Year) VALUES(?)''', (year, ))
+    # CHECKS TO SEE IF DATA ENTRY USED BEFORE AND ASSIGNS NEW FOREIGN KEY
+    cur.execute('SELECT id FROM Year WHERE Year = ? ', (year, ))
+    Year_id = cur.fetchone()[0]
+
+
+    cur.execute('''INSERT OR IGNORE INTO Composition(type) VALUES(?)''', (composition, ))
+    cur.execute('SELECT id FROM Composition WHERE type = ? ', (composition, ))
+    Composition_id = cur.fetchone()[0]
+
+    # ADDS KEYS AND DATA TO MAIN TABLE METEORITES
+    cur.execute('''INSERT INTO Meteorites(Name, 'Mass(g)', Year_id, Composition_id, Latitude, Longitude) VALUES (?, ?, ?, ?, ?, ?)''', (meteor, mass, Year_id, Composition_id, lat, long))
+
+conn.commit()
+
+conn.close()
